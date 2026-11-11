@@ -59,6 +59,30 @@ The **Receiver** captures the stream via webcam or file import. The real-time lo
 
 ---
 
+## Executables
+
+Ready-made single-file executables for Linux and Windows are on the
+[Releases page](https://github.com/joruf/display-bridge/releases): one file for
+the **Sender** (`display-bridge-sender-...`) and one for the **Receiver**
+(`display-bridge-receiver-...`). No Python and no ZBar installation needed
+(Linux: `chmod +x` the file first). The browser version in `webui/` is not part
+of them.
+
+To build them yourself, on the system they are meant for (a full clone, because
+the version is counted from the git history):
+
+```bash
+python3 build-exe.py      # Linux   -> dist/display-bridge-<program>-linux-x86_64-<version>-build<build>
+py build-exe.py           # Windows -> dist/display-bridge-<program>-windows-x86_64-<version>-build<build>.exe
+```
+
+The script creates its own build environment in `build/exe/`, installs
+PyInstaller and the libraries, and starts each result once with `--version`.
+Linux needs `python3-venv`, `python3-tk` and `libzbar0` on the build machine.
+Options: `--clean` rebuilds the environment, `--keep-env` reuses it.
+
+---
+
 ## Platform Support
 
 ### Linux

@@ -304,6 +304,9 @@ class DisplayBridgeApp:
             self.root.after(int(1000 / self.fps_var.get()), self.animate)
 
 if __name__ == "__main__":
+    # The Windows executable starts the pool workers as new processes of itself.
+    from multiprocessing import freeze_support
+    freeze_support()
     try:
         root = TkinterDnD.Tk(); app = DisplayBridgeApp(root); root.mainloop()
     except Exception as e: print(f"Fatal Error: {e}")

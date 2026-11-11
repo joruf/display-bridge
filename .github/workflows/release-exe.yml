@@ -1,0 +1,95 @@
+name: Executables
+
+# Builds the single-file executables with build-exe.py - one set per system,
+# each on that system, because PyInstaller cannot build for another one - and
+# publishes them as a GitHub release: tag v<version>-build<build>, two assets
+# per platform (sender and receiver), named
+# display-bridge-<program>-<os>-<arch>-<version>-build<build>[.exe].
+#
+# The version is derived from the commit history (build-exe.py), so the build
+# number changes with every commit: every push that touches the program gets
+# its own release.  Run it by hand to rebuild the current one.
+on:
+  push:
+    branches: [main]
+    paths: ["python/**", "build-exe.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        # The oldest supported Ubuntu: the Linux files run on every system with
+        # the same or a newer glibc, never on an older one.
+        os: [ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # The whole history: the version is counted from it.
+          fetch-depth: 0
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv python3-tk libzbar0
+
+      # The system Python: it has the tkinter that was just installed.
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: /usr/bin/python3 build-exe.py
+
+      - name: Setup Python
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: python build-exe.py
+
+      - name: Keep the executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: exe-${{ matrix.os }}
+          path: dist/display-bridge-*
+          if-no-files-found: error
+
+  release:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect the executables
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create or refresh the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          read -r VERSION BUILD < <(python3 build-exe.py --print-version)
+          TAG="v${VERSION}-build${BUILD}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/display-bridge-* --clobber
+          else
+            gh release create "$TAG" dist/display-bridge-* \
+              --target "$GITHUB_SHA" \
+              --title "DisplayBridge ${VERSION} (${BUILD})" \
+              --notes "Single-file executables built by build-exe.py: display-bridge-sender and display-bridge-receiver for Linux and Windows. Linux: make the file executable (chmod +x) and start it. Windows: start the .exe."
+          fi
